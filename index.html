@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Neroma — Календарь + Питание + Планировщик | SuperShift Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -306,16 +309,12 @@
 </div>
 
 <script>
-    // --------------------------------------------------------------
-    // ПОЛНОСТЬЮ РАБОЧАЯ БАЗА ДАННЫХ И ВСЕ МОДУЛИ
-    // --------------------------------------------------------------
     let DB = JSON.parse(localStorage.getItem('Neroma_BD')) || {
         tasks: [], money: [], sportHistory: [], cal: [], anniv: [], workSchedule: [], projects: [], capsules: [], recurring: [],
         shiftTemplates: [], rotations: [], quickEvents: [],
         nutritionProducts: [], nutritionDiary: {},
         settings: { theme: 'dark', autoArchiveDays: null, incognitoMode: false, rateMode: 'auto', autoRateDays: 30, workHoursPerDay: 8, hourlyRate: null, showHourlyEquivalent: false, uiScale: 'medium', manualTimeEnabled: false, manualTimeValue: null, timeFormat: '24h', publicToken: null }
     };
-    // Инициализация
     if (!DB.nutritionProducts) DB.nutritionProducts = [];
     if (!DB.nutritionDiary) DB.nutritionDiary = {};
     if (DB.nutritionProducts.length === 0) {
@@ -345,7 +344,15 @@
     function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
     function showToast(msg) { let t=document.createElement('div'); t.className='toast-notify'; t.innerText=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000); }
 
-    // ==================== МОДУЛЬ ПИТАНИЯ ====================
+    // Закрытие всех модалок по клику на фон
+    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
+    });
+
     let nutritionCurrentDay = 0;
     let nutritionChart = null;
     function renderNutrition() {
@@ -498,7 +505,6 @@
         });
     });
 
-    // ==================== МОДУЛЬ ЗАДАЧ ====================
     let currentTaskStatusView='active', currentTaskTypeFilter='all', editingTaskId=null;
     function renderTasksList() {
         let search = document.getElementById('tasks-search')?.value.toLowerCase() || '';
@@ -528,7 +534,6 @@
     function setTaskTypeFilter(f) { currentTaskTypeFilter=f; renderTasksList(); }
     function clearArchive() { if(confirm('Очистить архив?')) { DB.tasks = DB.tasks.filter(t=>t.status!=='archived'); save(); } }
 
-    // ==================== МОДУЛЬ ФИНАНСОВ ====================
     let currentMoneyType='expense';
     function renderMoneyList() { 
         let q = document.getElementById('search-money')?.value.toLowerCase()||'';
@@ -571,15 +576,13 @@
     function exportMoneyCSV() { let filtered = DB.money; const BOM='\uFEFF'; const header='Дата;Время;Категория;Сумма;Тип;Скрытая;Проект\n'; const rows=filtered.map(m=>{ const dateTime=new Date(m.ts).toLocaleString('ru-RU'); const cat=m.cat.replace(/;/g,','); const sum=m.val; const type=m.val>0?'Доход':'Расход'; const hidden=m.hidden?'Да':'Нет'; const projName=m.projectId?(DB.projects.find(p=>p.id===m.projectId)?.name||''):''; return `${dateTime};${cat};${sum};${type};${hidden};${projName}`; }).join('\n'); const csv=BOM+header+rows; const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`Neroma_Finance_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href); }
     function importMoneyCSV(event) { alert("Импорт CSV (упрощён)"); }
 
-    // ==================== РЕГУЛЯРНЫЕ ТРАТЫ ====================
     function renderRecurringList() { const container = document.getElementById('recurring-list'); if(!container) return; container.innerHTML = DB.recurring.map(r => `<div class="flex justify-between items-center bg-white/5 p-3 rounded-xl"><div><div class="text-xs font-bold">${escapeHtml(r.name)}</div><div class="text-[9px] text-slate-400">${r.amount} ₽, ${r.day} числа</div></div><button onclick="deleteRecurring('${r.id}')" class="text-rose-400"><i class="fas fa-trash-alt"></i></button></div>`).join('') || '<div class="text-center text-[10px] text-slate-500">Нет регулярных трат</div>'; }
     function showRecurringForm() { document.getElementById('recurring-modal').classList.remove('hidden'); }
     function closeRecurringModal() { document.getElementById('recurring-modal').classList.add('hidden'); }
     function addRecurringExpense() { const name = document.getElementById('recurring-name').value.trim(); const amount = parseFloat(document.getElementById('recurring-amount').value); const day = parseInt(document.getElementById('recurring-day').value); const startMonth = document.getElementById('recurring-start').value; const category = document.getElementById('recurring-category').value.trim() || 'Подписка'; if(!name || isNaN(amount)) return; DB.recurring.push({ id: genId(), name, amount, day, startMonth, category, lastProcessed: null, createdAt: Date.now() }); save(); closeRecurringModal(); }
     function deleteRecurring(id) { DB.recurring = DB.recurring.filter(r=>r.id!==id); save(); }
-    function processRecurringExpenses() { /* заглушка */ }
+    function processRecurringExpenses() { }
 
-    // ==================== МОДУЛЬ СПОРТА ====================
     let selectedSportDate = null, sportViewDate = new Date();
     function renderSport() { let y = sportViewDate.getFullYear(), m = sportViewDate.getMonth(); document.getElementById('sport-month-year').innerText = new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric'}).format(sportViewDate); let first = (new Date(y,m,1).getDay()+6)%7, days = new Date(y,m+1,0).getDate(), html = '', done=0,miss=0; for(let i=0;i<first;i++) html+='<div></div>'; for(let d=1;d<=days;d++){ let ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`, entry=DB.sportHistory.find(h=>h.date===ds), cls='calendar-day', inner=`<span class="text-sm">${d}</span>`, hasDesc=entry?.desc?.trim(); if(entry?.status==='done'){ cls+=' sport-done'; inner=`<span class="text-emerald-400 text-sm font-bold">✓</span> <span>${d}</span>`; done++; } else if(entry?.status==='missed'){ cls+=' sport-missed'; inner=`<span class="text-rose-400 text-sm">✗</span> <span>${d}</span>`; miss++; } else cls+=' bg-white/5'; if(hasDesc) inner+=`<div class="dot-corner" style="background:#c084fc;"></div>`; html+=`<div onclick="openSport('${ds}')" class="${cls}">${inner}</div>`; } document.getElementById('sport-calendar-body').innerHTML = html; document.getElementById('stat-sport-done').innerText = done; document.getElementById('stat-sport-missed').innerText = miss; }
     function changeSportMonth(v) { if (selectedSportDate) { saveSportDraft(); closeSport(false); } sportViewDate.setMonth(sportViewDate.getMonth()+v); renderSport(); }
@@ -589,7 +592,6 @@
     function resetSportDay() { if (!selectedSportDate) return; DB.sportHistory = DB.sportHistory.filter(h => h.date !== selectedSportDate); document.getElementById('in-sport-desc').value = ''; save(); closeSport(false); }
     function closeSport(saveDraft) { if (saveDraft && selectedSportDate) saveSportDraft(); selectedSportDate = null; document.getElementById('sport-day-form').classList.add('hidden'); renderSport(); }
 
-    // ==================== ПРОЕКТЫ ====================
     function populateProjectSelects() {
         const selectors = ['in-task-project', 'in-money-project'];
         const options = '<option value="">📁 Без проекта</option>' + DB.projects.map(p => `<option value="${p.id}">📂 ${escapeHtml(p.name)}</option>`).join('');
@@ -609,6 +611,7 @@
         }).join('');
     }
     function showCreateProjectForm() { const name = prompt('Название проекта:'); if (!name) return; const budget = prompt('Бюджет (опционально):'); const desc = prompt('Описание:'); DB.projects.push({ id: genId(), name: name.trim(), budget: budget ? parseFloat(budget) : null, description: desc || '', createdAt: Date.now() }); save(); renderProjectsList(); }
+    let currentProjectId = null;
     function openProjectDetail(projectId) {
         currentProjectId = projectId;
         const proj = DB.projects.find(p => p.id === projectId);
@@ -628,19 +631,16 @@
     function quickAddTaskForProject(pid) { const text = prompt('Текст задачи:'); if (!text) return; DB.tasks.push({ id: genId(), text: text.trim(), type: 'medium', status: 'active', createdAt: Date.now(), updatedAt: Date.now(), completedAt: null, archivedAt: null, lastCompletedDate: null, projectId: pid }); save(); openProjectDetail(pid); }
     function quickAddExpenseForProject(pid) { let amount = parseFloat(prompt('Сумма расхода (₽):')); if (isNaN(amount) || amount <= 0) return; let cat = prompt('Категория:', 'Проект'); DB.money.push({ id: genId(), val: -Math.abs(amount), cat: cat.trim(), date: new Date().toISOString().slice(0,10), ts: Date.now(), hidden: false, updatedAt: Date.now(), projectId: pid }); save(); openProjectDetail(pid); }
 
-    // ==================== КАПСУЛА ====================
     function renderCapsules() { const container = document.getElementById('capsules-list'); if(!container) return; const now = new Date().toISOString().slice(0,10); const future = DB.capsules.filter(c=>c.openDate > now).sort((a,b)=>a.openDate.localeCompare(b.openDate)); const revealed = DB.capsules.filter(c=>c.openDate <= now || c.revealed).sort((a,b)=>b.openDate.localeCompare(a.openDate)); let html=''; if(future.length) { html+=`<div class="mb-4"><div class="text-[10px] font-bold text-slate-400 uppercase mb-2">🔒 Закрытые</div>`; future.forEach(c=>{ html+=`<div class="surface p-4 rounded-xl flex justify-between"><div><div class="text-[10px] text-amber-400">📅 Откроется: ${c.openDate}</div><div class="text-xs text-slate-400 italic">🔒 Сообщение скрыто</div></div><button onclick="deleteCapsule('${c.id}')" class="text-rose-400/70"><i class="fas fa-trash-alt"></i></button></div>`; }); html+=`</div>`; } if(revealed.length) { html+=`<div><div class="text-[10px] font-bold text-slate-400 uppercase mb-2">📜 Открытые</div>`; revealed.forEach(c=>{ html+=`<div class="surface p-4 rounded-xl border-l-4 border-emerald-500"><div class="flex justify-between"><div><div class="text-[9px] text-emerald-400">🗓 Раскрыта: ${c.openDate}</div><div class="text-sm whitespace-pre-wrap break-words">${escapeHtml(c.message)}</div></div><button onclick="deleteCapsule('${c.id}')" class="text-rose-400/70"><i class="fas fa-trash-alt"></i></button></div></div>`; }); html+=`</div>`; } if(future.length===0 && revealed.length===0) html='<div class="text-center text-slate-500 py-10 text-xs">Пока нет ни одной капсулы. Создайте послание в будущее!</div>'; container.innerHTML = html; }
     function createCapsule() { const msg = document.getElementById('capsule-message').value.trim(); const openDate = document.getElementById('capsule-open-date').value; if(!msg){ alert('Напишите текст'); return; } if(!openDate){ alert('Выберите дату открытия'); return; } const today = new Date().toISOString().slice(0,10); if(openDate <= today){ alert('Дата открытия должна быть в будущем'); return; } DB.capsules.push({ id: genId(), message: msg, openDate, revealed: false, createdAt: Date.now() }); document.getElementById('capsule-message').value=''; document.getElementById('capsule-open-date').value=''; save(); renderCapsules(); }
     function deleteCapsule(id) { if(confirm('Удалить капсулу?')) { DB.capsules = DB.capsules.filter(c=>c.id!==id); save(); renderCapsules(); } }
     function checkAndRevealCapsules() { const today = new Date().toISOString().slice(0,10); let revealedAny=false; DB.capsules.forEach(c=>{ if(!c.revealed && c.openDate <= today){ c.revealed=true; c.revealedAt=Date.now(); revealedAny=true; } }); if(revealedAny){ save(); if(currentTab==='capsule') renderCapsules(); showToast("Капсула времени открыта!"); } }
 
-    // ==================== КАЛЕНДАРЬ (SuperShift + Day View с умной раскладкой) ====================
     let unifiedViewDate = new Date(), currentUnifiedDate = null, currentCalendarView = 'month';
     function getShiftForDate(dateStr) { return DB.workSchedule.find(w => w.date === dateStr); }
     function formatTime(timeStr) { if(!timeStr) return ''; if(DB.settings.timeFormat==='12h'){ let [h,m]=timeStr.split(':'); let hour=parseInt(h); let ampm=hour>=12?'PM':'AM'; let hour12=hour%12||12; return `${hour12}:${m} ${ampm}`; } return timeStr.slice(0,5); }
     function getMinutesFromMidnight(timeStr) { if (!timeStr) return 0; let [h,m] = timeStr.split(':'); return parseInt(h)*60 + parseInt(m||0); }
     
-    // Умная раскладка событий для дневного вида
     function layoutDayEvents(events) {
         if (!events.length) return [];
         let sorted = [...events].sort((a,b)=> getMinutesFromMidnight(a.startTime) - getMinutesFromMidnight(b.startTime));
@@ -839,9 +839,9 @@
         for(let h=0;h<24;h++) hours.push(`${h.toString().padStart(2,'0')}:00`); 
         let html=`<table class="week-table w-full text-xs"><thead><tr><th class="time-col"></th>`; 
         weekDays.forEach(d=>{ html+=`<th class="p-1">${d.toLocaleDateString('ru-RU',{weekday:'short',day:'numeric'})}</th>`; }); 
-        html+=`<\/tr><\/thead><tbody>`; 
+        html+=`</tr></thead><tbody>`; 
         hours.forEach(hour=>{ 
-            html+=`<tr><td class="time-col text-right pr-2">${formatTime(hour)}<\/td>`; 
+            html+=`<tr><td class="time-col text-right pr-2">${formatTime(hour)}</td>`; 
             weekDays.forEach(day=>{ 
                 let ds=day.toISOString().slice(0,10); 
                 let events=DB.quickEvents.filter(e=>e.date===ds&&e.startTime===hour); 
@@ -855,9 +855,9 @@
                     let reminderClass=ev.reminderMinutes>0?'reminder':''; 
                     cellContent+=`<div class="event-badge ${reminderClass}" onclick="event.stopPropagation(); editQuickEvent('${ev.id}')"><i class="fas fa-calendar-check"></i> ${escapeHtml(ev.title)}</div>`; 
                 }); 
-                html+=`<td onclick="openQuickEventModal('${ds}','${hour}')" class="align-top">${cellContent}<\/td>`; 
+                html+=`<td onclick="openQuickEventModal('${ds}','${hour}')" class="align-top">${cellContent}</td>`; 
             }); 
-            html+=`<\/tr>`; 
+            html+=`</tr>`; 
         }); 
         html+=`</tbody></table>`; 
         document.getElementById('week-calendar-view').innerHTML=html; 
@@ -877,7 +877,6 @@
     function closeClearDataModal(){ document.getElementById('clear-data-modal').classList.add('hidden'); }
     function performClearData(){ let range=document.getElementById('clear-range').value; let type=document.getElementById('clear-type').value; let datesToClear=[]; let currentDate=unifiedViewDate; if(range==='day'){ if(!currentUnifiedDate){ alert("Сначала выберите день в календаре"); closeClearDataModal(); return; } datesToClear=[currentUnifiedDate]; } else if(range==='week'){ let y=currentDate.getFullYear(),m=currentDate.getMonth(); let firstDayOfMonth=new Date(y,m,1); let lastDayOfMonth=new Date(y,m+1,0); let start=new Date(currentDate); let day=currentDate.getDay(); let diff=day===0?6:day-1; start.setDate(currentDate.getDate()-diff); for(let i=0;i<7;i++){ let d=new Date(start); d.setDate(start.getDate()+i); let ds=d.toISOString().slice(0,10); if(d>=firstDayOfMonth&&d<=lastDayOfMonth) datesToClear.push(ds); } } else if(range==='month'){ let y=currentDate.getFullYear(),m=currentDate.getMonth(); let days=new Date(y,m+1,0).getDate(); for(let d=1;d<=days;d++) datesToClear.push(`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`); } else if(range==='year'){ let y=currentDate.getFullYear(); for(let m=0;m<12;m++){ let days=new Date(y,m+1,0).getDate(); for(let d=1;d<=days;d++) datesToClear.push(`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`); } } if(type==='shifts'||type==='all') DB.workSchedule=DB.workSchedule.filter(w=>!datesToClear.includes(w.date)); if(type==='events'||type==='all'){ DB.cal=DB.cal.filter(e=>!datesToClear.includes(e.date)); DB.anniv=DB.anniv.filter(a=>!datesToClear.some(d=>a.dm===d.slice(5))); DB.quickEvents=DB.quickEvents.filter(e=>!datesToClear.includes(e.date)); } save(); closeClearDataModal(); showToast(`Очищено ${datesToClear.length} дней`); if(currentCalendarView==='month') renderUnifiedCalendar(); else if(currentCalendarView==='week') renderWeekCalendar(); else renderDayCalendar(); }
 
-    // ==================== ШАБЛОНЫ И РОТАЦИИ ====================
     function openShiftTemplatesModal(){ renderShiftTemplatesList(); document.getElementById('shift-templates-modal').classList.remove('hidden'); }
     function closeShiftTemplatesModal(){ document.getElementById('shift-templates-modal').classList.add('hidden'); }
     function renderShiftTemplatesList(){ const c=document.getElementById('shift-templates-list'); if(c) c.innerHTML=DB.shiftTemplates.map(t=>`<div class="surface p-3 rounded-xl flex justify-between"><div><span class="font-bold">${t.shortCode}</span> - ${t.name}<br><span class="text-[10px]">${t.startTime}—${t.endTime} | перерыв ${t.breakMinutes} мин | ${t.hourlyRate}₽/ч</span></div><div><button onclick="editShiftTemplate('${t.id}')" class="text-blue-400"><i class="fas fa-edit"></i></button><button onclick="deleteShiftTemplate('${t.id}')" class="text-rose-400 ml-2"><i class="fas fa-trash"></i></button></div></div>`).join(''); }
@@ -896,7 +895,6 @@
     function renderRotationsList(){ const c=document.getElementById('rotations-list'); if(c) c.innerHTML=DB.rotations.map(r=>`<div class="surface p-3 rounded-xl flex justify-between"><div><span class="font-bold">${escapeHtml(r.name)}</span><br><span class="text-[9px]">${r.pattern.map(id=>DB.shiftTemplates.find(t=>t.id===id)?.shortCode||'?').join(' → ')}</span></div><button onclick="deleteRotation('${r.id}')" class="text-rose-400"><i class="fas fa-trash"></i></button></div>`).join('')||'<div class="text-center text-slate-500">Нет ротаций</div>'; }
     function deleteRotation(id){ DB.rotations=DB.rotations.filter(r=>r.id!==id); save(); renderRotationsList(); }
 
-    // ==================== ОБМЕН ====================
     function openShareModal(){ document.getElementById('share-modal').classList.remove('hidden'); document.getElementById('public-link-container').classList.add('hidden'); }
     function closeShareModal(){ document.getElementById('share-modal').classList.add('hidden'); }
     function exportToPDF(){ window.print(); closeShareModal(); }
@@ -905,7 +903,6 @@
     function copyPublicLink(){ let input=document.getElementById('public-link-input'); input.select(); document.execCommand('copy'); showToast("Ссылка скопирована"); }
     if(window.location.search.includes('share=')){ let token=new URLSearchParams(window.location.search).get('share'); if(token===DB.settings.publicToken) setTimeout(()=>alert("Публичный просмотр календаря. Только чтение."),500); }
 
-    // ==================== НАСТРОЙКИ И ОБЩИЙ РЕНДЕР ====================
     function getEffectiveHourlyRate() {
         if (DB.settings.rateMode === 'manual') return DB.settings.hourlyRate || 0;
         const days = DB.settings.autoRateDays;
@@ -990,7 +987,6 @@
         document.getElementById('dash-task-count').innerText=urgent.length+' / '+DB.tasks.filter(t=>t.status==='active').length;
         document.getElementById('dash-tasks-list').innerHTML=urgent.length?urgent.slice(0,4).map(t=>`<div class="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex gap-2"><i class="fas fa-fire text-rose-500"></i><div class="text-xs font-bold">${escapeHtml(t.text)}</div></div>`).join(''):'<p class="text-center text-[10px] text-slate-500">Нет срочных задач</p>';
         let weekHtml='', today=new Date(), dow=today.getDay(), start=new Date(today); start.setDate(today.getDate()-(dow===0?6:dow-1)); let weekDays=['Пн','Вт','Ср','Чт','Пт','Сб','Вс']; for(let i=0;i<7;i++){ let cur=new Date(start); cur.setDate(start.getDate()+i); let ds=cur.toISOString().slice(0,10); let entry=DB.sportHistory.find(h=>h.date===ds); let bg='bg-white/5', icon=''; if(entry && entry.status==='done'){ bg='bg-emerald-500/40'; icon='✓'; } else if(entry && entry.status==='missed'){ bg='bg-rose-500/30'; icon='✗'; } weekHtml+=`<div class="flex flex-col items-center w-10"><span class="text-[9px] text-slate-400">${weekDays[i]}</span><div class="w-10 h-10 rounded-lg ${bg} flex items-center justify-center text-[12px] font-black">${icon||cur.getDate()}</div></div>`; } document.getElementById('dash-sport-grid').innerHTML=weekHtml;
-        // Только события: дни рождения, мероприятия, быстрые события (не смены и не операции)
         let tomorrow=new Date(today); tomorrow.setDate(tomorrow.getDate()+1); 
         let tmr=tomorrow.toISOString().slice(0,10); 
         let td=today.toISOString().slice(0,10); 
@@ -1027,14 +1023,21 @@
         window.scrollTo({top:0});
         closeMenuModal();
     }
-    // Исправленный обработчик меню с закрытием
-    document.querySelectorAll('.menu-nav-btn').forEach(btn=>{
-        btn.addEventListener('click', (e)=>{
+    // Исправленный обработчик для кнопок меню (гарантированное закрытие в Telegram)
+    document.querySelectorAll('.menu-nav-btn').forEach(btn => {
+        const handler = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            switchTab(btn.dataset.tab);
-            closeMenuModal(); // закрываем меню после перехода
-        });
+            const tabId = btn.dataset.tab;
+            if (tabId) {
+                switchTab(tabId);
+                setTimeout(() => {
+                    closeMenuModal();
+                }, 20);
+            }
+        };
+        btn.addEventListener('click', handler);
+        btn.addEventListener('touchstart', handler);
     });
     document.getElementById('create-capsule-btn')?.addEventListener('click',createCapsule);
     document.getElementById('capsule-help-btn')?.addEventListener('click',()=>document.getElementById('capsule-help-modal').classList.remove('hidden'));
