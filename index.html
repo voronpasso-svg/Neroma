@@ -1025,7 +1025,10 @@
         window.scrollTo({top:0});
         closeMenuModal();
     }
-    document.querySelectorAll('.menu-nav-btn').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
+document.querySelectorAll('.menu-nav-btn').forEach(btn=>btn.addEventListener('click',()=>{
+    switchTab(btn.dataset.tab);
+    closeMenuModal(); // закрываем меню после перехода
+}));
     document.getElementById('create-capsule-btn')?.addEventListener('click',createCapsule);
     document.getElementById('capsule-help-btn')?.addEventListener('click',()=>document.getElementById('capsule-help-modal').classList.remove('hidden'));
 
