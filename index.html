@@ -643,19 +643,16 @@
     // Умная раскладка событий для дневного вида
     function layoutDayEvents(events) {
         if (!events.length) return [];
-        // Сортируем по времени начала
         let sorted = [...events].sort((a,b)=> getMinutesFromMidnight(a.startTime) - getMinutesFromMidnight(b.startTime));
         let columns = [];
         let columnEnds = [];
         let eventColumns = [];
-        // Простой алгоритм: для каждого события ищем первую колонку, где оно не пересекается
         for (let ev of sorted) {
             let start = getMinutesFromMidnight(ev.startTime);
             let end = getMinutesFromMidnight(ev.endTime) || start + 60;
             let placed = false;
             for (let col = 0; col < columnEnds.length; col++) {
                 if (start >= columnEnds[col]) {
-                    // Можно разместить в этой колонке
                     eventColumns.push({ col, width: 1 });
                     columnEnds[col] = end;
                     placed = true;
@@ -668,11 +665,9 @@
             }
         }
         let totalCols = columnEnds.length;
-        // Теперь для каждого события вычислим ширину и отступ
         for (let i = 0; i < sorted.length; i++) {
             let ev = sorted[i];
             let col = eventColumns[i].col;
-            // Найдём, сколько событий в этой колонке пересекаются с текущим, но это упрощённо, лучше определить ширину как 1/totalCols
             let width = 1 / totalCols;
             let left = col * width;
             ev._layout = { left: left * 100 + '%', width: width * 100 + '%' };
@@ -688,15 +683,12 @@
         let html = `<table class="day-table w-full text-xs"><thead><tr><th class="time-col">Время</th><th class="text-left pl-2">${date.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'})}</th></tr></thead><tbody>`;
         for (let h=0; h<24; h++) {
             let hourStart = `${h.toString().padStart(2,'0')}:00`;
-            let hourEnd = `${(h+1).toString().padStart(2,'0')}:00`;
             html += `<tr style="height: 60px;"><td class="time-col text-right pr-2">${formatTime(hourStart)}</td><td class="relative align-top" onclick="openQuickEventModal('${ds}','${hourStart}')" style="position: relative;">`;
-            // события, которые активны в этом часу
             let activeEvents = laidOut.filter(ev => {
                 let startMin = getMinutesFromMidnight(ev.startTime);
                 let endMin = getMinutesFromMidnight(ev.endTime) || startMin + 60;
                 return (startMin < (h+1)*60 && endMin > h*60);
             });
-            // группируем по колонкам, но у нас уже есть layout
             for (let ev of activeEvents) {
                 let startMin = getMinutesFromMidnight(ev.startTime);
                 let endMin = getMinutesFromMidnight(ev.endTime) || startMin + 60;
@@ -712,7 +704,6 @@
         }
         html += `</tbody></table>`;
         document.getElementById('day-calendar-view').innerHTML = html;
-        // Убираем горизонтальный скролл
         let dayTable = document.querySelector('.day-table');
         if (dayTable) { dayTable.style.minWidth = 'auto'; dayTable.style.width = '100%'; }
     }
@@ -868,7 +859,7 @@
             }); 
             html+=`<\/tr>`; 
         }); 
-        html+=`</tbody></td>`; 
+        html+=`</tbody></table>`; 
         document.getElementById('week-calendar-view').innerHTML=html; 
     }
     function updateMonthStats() { let y=unifiedViewDate.getFullYear(), m=unifiedViewDate.getMonth(); let daysInMonth=new Date(y,m+1,0).getDate(); let totalShifts=0,totalHours=0,totalEarnings=0; for(let d=1;d<=daysInMonth;d++){ let ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; let shift=getShiftForDate(ds); if(shift&&shift.shiftId){ let template=DB.shiftTemplates.find(t=>t.id===shift.shiftId); if(template&&template.startTime&&template.endTime&&template.shortCode!=="ВЫХ"){ totalShifts++; let start=new Date(`2000-01-01T${template.startTime}`); let end=new Date(`2000-01-01T${template.endTime}`); let hours=(end-start)/3600000; if(hours<0) hours+=24; let netHours=Math.max(0,hours-(template.breakMinutes/60)); totalHours+=netHours; let rate=shift.hourlyRate||template.hourlyRate||0; let multiplier=1; if(template.endTime>="22:00"||template.endTime<"06:00") multiplier=1.2; totalEarnings+=netHours*rate*multiplier; } } } document.getElementById('stat-shifts-count').innerText=totalShifts; document.getElementById('stat-hours-total').innerText=totalHours.toFixed(1); let earningsSpan=document.getElementById('stat-earnings'); earningsSpan.innerHTML=`${Math.round(totalEarnings).toLocaleString()} ₽`; if(DB.settings.incognitoMode) earningsSpan.classList.add('money-value'); else earningsSpan.classList.remove('money-value'); }
@@ -999,7 +990,18 @@
         document.getElementById('dash-task-count').innerText=urgent.length+' / '+DB.tasks.filter(t=>t.status==='active').length;
         document.getElementById('dash-tasks-list').innerHTML=urgent.length?urgent.slice(0,4).map(t=>`<div class="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex gap-2"><i class="fas fa-fire text-rose-500"></i><div class="text-xs font-bold">${escapeHtml(t.text)}</div></div>`).join(''):'<p class="text-center text-[10px] text-slate-500">Нет срочных задач</p>';
         let weekHtml='', today=new Date(), dow=today.getDay(), start=new Date(today); start.setDate(today.getDate()-(dow===0?6:dow-1)); let weekDays=['Пн','Вт','Ср','Чт','Пт','Сб','Вс']; for(let i=0;i<7;i++){ let cur=new Date(start); cur.setDate(start.getDate()+i); let ds=cur.toISOString().slice(0,10); let entry=DB.sportHistory.find(h=>h.date===ds); let bg='bg-white/5', icon=''; if(entry && entry.status==='done'){ bg='bg-emerald-500/40'; icon='✓'; } else if(entry && entry.status==='missed'){ bg='bg-rose-500/30'; icon='✗'; } weekHtml+=`<div class="flex flex-col items-center w-10"><span class="text-[9px] text-slate-400">${weekDays[i]}</span><div class="w-10 h-10 rounded-lg ${bg} flex items-center justify-center text-[12px] font-black">${icon||cur.getDate()}</div></div>`; } document.getElementById('dash-sport-grid').innerHTML=weekHtml;
-        let tomorrow=new Date(today); tomorrow.setDate(tomorrow.getDate()+1); let tmr=tomorrow.toISOString().slice(0,10); let td=today.toISOString().slice(0,10); let near=[...DB.cal.filter(e=>e.date===td||e.date===tmr), ...DB.anniv.filter(a=>a.dm===td.slice(5)||a.dm===tmr.slice(5)), ...DB.quickEvents.filter(e=>e.date===td||e.date===tmr)]; document.getElementById('dash-events-list').innerHTML=near.length?near.map(e=>`<div class="text-xs font-bold bg-blue-500/10 p-3 rounded-xl border border-blue-500/20">${e.text||e.title}</div>`).join(''):'<p class="text-[10px] text-slate-500">Нет планов</p>';
+        // Только события: дни рождения, мероприятия, быстрые события (не смены и не операции)
+        let tomorrow=new Date(today); tomorrow.setDate(tomorrow.getDate()+1); 
+        let tmr=tomorrow.toISOString().slice(0,10); 
+        let td=today.toISOString().slice(0,10); 
+        let nearEvents = [
+            ...DB.cal.filter(e => e.date === td || e.date === tmr),
+            ...DB.anniv.filter(a => a.dm === td.slice(5) || a.dm === tmr.slice(5)),
+            ...DB.quickEvents.filter(e => e.date === td || e.date === tmr)
+        ];
+        document.getElementById('dash-events-list').innerHTML = nearEvents.length 
+            ? nearEvents.map(e => `<div class="text-xs font-bold bg-blue-500/10 p-3 rounded-xl border border-blue-500/20">${escapeHtml(e.text || e.title)}</div>`).join('')
+            : '<p class="text-[10px] text-slate-500">Нет событий</p>';
         let nextWork=DB.workSchedule.find(w=>w.date>=new Date().toISOString().slice(0,10));
         document.getElementById('next-work-day-info').innerHTML=nextWork?`📅 ${nextWork.date}`:'Нет рабочих дней';
         let dashProjects=document.getElementById('dash-projects-list');
@@ -1025,10 +1027,15 @@
         window.scrollTo({top:0});
         closeMenuModal();
     }
-document.querySelectorAll('.menu-nav-btn').forEach(btn=>btn.addEventListener('click',()=>{
-    switchTab(btn.dataset.tab);
-    closeMenuModal(); // закрываем меню после перехода
-}));
+    // Исправленный обработчик меню с закрытием
+    document.querySelectorAll('.menu-nav-btn').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+            e.preventDefault();
+            e.stopPropagation();
+            switchTab(btn.dataset.tab);
+            closeMenuModal(); // закрываем меню после перехода
+        });
+    });
     document.getElementById('create-capsule-btn')?.addEventListener('click',createCapsule);
     document.getElementById('capsule-help-btn')?.addEventListener('click',()=>document.getElementById('capsule-help-modal').classList.remove('hidden'));
 
